@@ -7,15 +7,18 @@
 #include<signal.h>
 #include<sys/time.h>
 #include <time.h>
-#define GNB_TCP_PORT 6000
-#define MAXLINE 1024
 
-struct NgAP_Paging_message {
+#define GNB_TCP_PORT 6000
+#define MAXLINE 2048
+
+struct NgAP_Paging_message
+{
     int Message_Type;
-    int UE_ID;
-    int TAC;
+    int NG_5G_S_TMSI;
+    int TAI;
     int CN_Domain;
 };
+
 
 int main(){
     int sock;
@@ -42,15 +45,18 @@ int main(){
 
     printf("Connected\n");
 
+    /*
+     *send NgAP paging message to gNodeB voi tan suat 5ms
+     */
     while(1){
         struct NgAP_Paging_message paging_message;
-        paging_message.Message_Type = 101;
-        paging_message.UE_ID = rand() % 200;
-        paging_message.TAC = 8888;
+        paging_message.Message_Type = 100;
+        paging_message.NG_5G_S_TMSI = rand() % 200;
+        paging_message.TAI = 8888;
         paging_message.CN_Domain = 101;
         memcpy(buffer, &paging_message, sizeof(paging_message));
         send(sock, buffer, sizeof(buffer), 0);
-        printf("NgAP sent: UE_ID = %d, TAC = %d, CN_Domain = %d\n", paging_message.UE_ID, paging_message.TAC, paging_message.CN_Domain);
+        printf("NgAP sent: NG_5G_S_TMSI = %d, TAI = %d, CN_Domain = %d\n", paging_message.NG_5G_S_TMSI, paging_message.TAI, paging_message.CN_Domain);
         usleep(5000);
     }
 

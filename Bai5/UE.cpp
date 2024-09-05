@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <vector>
 
-#define UE_ID_S 101
+#define UE_ID_S 101             /*Dinh danh cua UE gia su da co duoc tu qua trinh Attach*/
 #define GNB_UDP_PORT 5000
 #define MAXLINE 1024
 
@@ -53,19 +53,25 @@ void increment_sfn(int signum)
     UE_sfn = (UE_sfn + 1) % 1024;
 }
 
-std ::vector<short> PFs;
 
-std ::vector<short> cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
+/*
+ *  *cal_PFs()
+ *  tinh toan gia tri PF ma UE thuc day nhan ban tin RRC_Paging
+ *  (SFN + PF_OFFSET)%T = (T / N) * (UE_ID % N);
+ */
+
+int PFs[8];
+void 
+cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
 {
     short T = DRX_cycle;
     short VP = (T / N) * (UE_ID % N);
     short start = VP;
-    std ::vector<short> res;
+    int cnt = 0;
     for (short i = VP; i < 1024; i += T)
     {
-        res.push_back(i);
+        PFs[cnt++] = i;
     }
-    return res;
 }
 
 void setup_timer()
@@ -138,20 +144,21 @@ int main()
                 printf("Received SIB1: PF_offset = %d, DRX_cycle = %d, N = %d\n", sib1.PF_offset, sib1.DRX_cycle, sib1.N);
                 if (sib1.N == 0)
                     continue;
-                PFs = cal_PFs(sib1.PF_offset, sib1.DRX_cycle, sib1.N, UE_ID_S);
-                for (auto i : PFs)
+                cal_PFs(sib1.PF_offset, sib1.DRX_cycle, sib1.N, UE_ID_S);
+                for (int i = 0; i < 8;i++)
                 {
-                    printf("PF = %d ", i);
+                    printf("PF = %d ", PFs[i]);
                 }
             }
         }
-        for (auto i : PFs)
+        /*UE thuc day va kiem tra ban tin RRC_Paging duoc gui den*/
+        for (int i = 0; i < 8;i++)
         {
-            if (UE_sfn == i)
+            if (UE_sfn == PFs[i])
             {
                 if (n > 0)
                 {
-                    if (buffer[0] == 100)
+                    if (buffer[0] == 101)
                     {
                         struct RRC_Paging_message paging_message;
                         memcpy(&paging_message, buffer, sizeof(paging_message));
@@ -166,7 +173,7 @@ int main()
                             printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
                             printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
 
-                            if (paging_message.paging_record[i].UE_ID == UE_ID_S)
+                            if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
                             {
                                 printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
                             }

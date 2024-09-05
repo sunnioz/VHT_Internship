@@ -53,21 +53,6 @@ void increment_sfn(int signum)
     UE_sfn = (UE_sfn + 1) % 1024;
 }
 
-// std ::vector<short> PFs;
-
-// std ::vector<short> cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
-// {
-//     short T = DRX_cycle;
-//     short VP = (T / N) * (UE_ID % N);
-//     short start = VP;
-//     std ::vector<short> res;
-//     for (short i = VP; i < 1024; i += T)
-//     {
-//         res.push_back(i);
-//     }
-//     return res;
-// }
-
 int PFs[8];
 void cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
 {
@@ -79,7 +64,6 @@ void cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
     {
         PFs[cnt++] = i;
     }
- 
 }
 
 void setup_timer()
@@ -165,7 +149,7 @@ int main()
             {
                 if (n > 0)
                 {
-                    if (buffer[0] == 100)
+                    if (buffer[0] == 101)
                     {
                         struct RRC_Paging_message paging_message;
                         memcpy(&paging_message, buffer, sizeof(paging_message));
