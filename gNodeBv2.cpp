@@ -17,7 +17,7 @@
 #define DRX_CYCLE 128       /*Chu ki DRX*/
 #define PF_OFFSET 0         /*Phan bu PF*/
 #define MAXNROFPAGEREC 32   /*So luong ban tin paging record toi da trong 1 ban tin RRC_Paging*/
-
+const char *ip_addr = "172.16.27.89";
 /*su dung flag_mutex de kiem soat Queue cua Paging Record*/
 pthread_mutex_t flag_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -333,7 +333,7 @@ void
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(UE_UDP_PORT);
-
+//    inet_pton(AF_INET,ip_addr,&servaddr.sin_addr);
     if (bind(udp_sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("bind failed");
@@ -452,7 +452,7 @@ void
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(AMF_TCP_PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
-
+    //inet_pton(AF_INET,ip_addr,&server_addr.sin_addr);
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         printf("bind error\n");
