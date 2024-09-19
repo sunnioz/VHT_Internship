@@ -194,7 +194,7 @@ volatile short gNodeB_sfn = 0;                      /*Bien luu tru gia tri SFN*/
 struct SIB1 sib1 = {PF_OFFSET, DRX_CYCLE, N};       /*Bien luu tru thong tin SIB1*/
 struct NgAP_Paging_message NgAP_paging_message;     /*Bien luu tru thong tin ban tin NgAP_Paging_message*/
 struct RRC_Paging_message rrc_paging_message;       /*Bien luu tru thong tin ban tin RRC_Paging_message*/
-
+volatile bool flag_gNodeB_sfn = false;
 
 /*
  *  *init_rrc_paging_message()
@@ -266,6 +266,7 @@ void
 increment_sfn(int signum)
 {
     gNodeB_sfn = (gNodeB_sfn + 1) % 1024;
+    flag_gNodeB_sfn = true;
 }
 /*
  *  *setup_timer()
@@ -372,6 +373,7 @@ void
         /*
          * vao cac thoi diem PF tien hanh gui cac ban tin tuong ung      
          */
+
         pthread_mutex_lock(&flag_mutex);
         for(int i = 0; i < N;i++)
         {
@@ -379,8 +381,9 @@ void
             //if(group_cliaddr[i].sin_family == 0) continue;
             for(int j = PF_first_s[i]; j <= SFN_MAX; j += DRX_CYCLE)
             {
-                if(gNodeB_sfn == j)
+                if(flag_gNodeB_sfn && gNodeB_sfn == j)
                 {
+                    flag_gNodeB_sfn = false;
                     rrc_paging_message = filter_rrc_paging_messages(&queue_of_Paging_record, i);
                     if(rrc_paging_message.num_Paging_record == 0 ) continue;
                     node_t *temp = list_client[i];
@@ -393,6 +396,7 @@ void
                     //sendto(udp_sockfd, (char *)&rrc_paging_message, sizeof(rrc_paging_message), MSG_CONFIRM, (const struct sockaddr *)&group_cliaddr[i], len);
                     //printf("gNodeB_sfn: %d RRC Paging message sent to UE: %d\n",gNodeB_sfn, i);
                     reset_rrc_paging_message();
+                    
                 }
             }
         }
@@ -475,7 +479,7 @@ void
                 pthread_mutex_lock(&flag_mutex);
                 add_paging_record_to_queue(NgAP_paging_message);    /*them ban tin Paging Record vao Queue*/
                 printf("number of paging record: %d\n", size(queue_of_Paging_record));
-                duyet(queue_of_Paging_record);                      /*in ra cac ban tin Paging Record trong Queue*/
+                //duyet(queue_of_Paging_record);                      /*in ra cac ban tin Paging Record trong Queue*/
                 pthread_mutex_unlock(&flag_mutex);
             }
         }
