@@ -23,10 +23,10 @@ function ngap_paging_proto.dissector(buffer, pinfo, tree)
     end
 
     -- Add fields to the tree
-    subtree:add(fields.message_type, buffer(0, 4))
-    subtree:add(fields.ng_5g_s_tmsi, buffer(4, 4))
-    subtree:add(fields.tai, buffer(8, 4))
-    subtree:add(fields.cn_domain, buffer(12, 4))
+    subtree:add_le(fields.message_type, buffer(0, 4))
+    subtree:add_le(fields.ng_5g_s_tmsi, buffer(4, 4))
+    subtree:add_le(fields.tai, buffer(8, 4))
+    subtree:add_le(fields.cn_domain, buffer(12, 4))
 end
 
 -- Register the dissector to TCP port 6000
