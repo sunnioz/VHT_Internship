@@ -57,7 +57,7 @@ int main(){
         memcpy(buffer, &paging_message, sizeof(paging_message));
         send(sock, buffer, sizeof(buffer), 0);
         printf("NgAP sent: NG_5G_S_TMSI = %d, TAI = %d, CN_Domain = %d\n", paging_message.NG_5G_S_TMSI, paging_message.TAI, paging_message.CN_Domain);
-        usleep(5000);
+        usleep(2000);
     }
 
     return 0;
