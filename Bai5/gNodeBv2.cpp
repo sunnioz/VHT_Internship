@@ -251,7 +251,7 @@ add_paging_record_to_queue(struct NgAP_Paging_message paging_message)
     int UE_ID = paging_message.NG_5G_S_TMSI % 1024;
     int group = UE_ID % N;
     //if (group_cliaddr[group].sin_family == 0) return;
-    if(empty(list_client[group])) return;
+    //if(empty(list_client[group])) return;
     struct mapping_paging_record_to_group *x = (struct mapping_paging_record_to_group *)malloc(sizeof(struct mapping_paging_record_to_group));
     if (x == NULL) {
         perror("Failed to allocate memory for paging record");
@@ -337,9 +337,9 @@ void
     memset(&cliaddr, 0, sizeof(cliaddr));
 
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
+    //servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(UE_UDP_PORT);
-    //inet_pton(AF_INET,"172.16.27.89",&servaddr.sin_addr);
+    inet_pton(AF_INET,"127.0.0.1",&servaddr.sin_addr);
     if (bind(udp_sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("bind failed");
@@ -375,6 +375,32 @@ void
             printf("SIB1 message sent to UE\n");
         }
 
+
+                /*
+         * Tien hanh gui ban tin MIB nham muc dung dong bo SFN
+         */
+        if (gNodeB_sfn % 8)
+        {
+            flag = true;
+        }
+        if (gNodeB_sfn % 8 == 0 && flag) // 80ms delay
+        {
+            flag = false;
+            mib.message_id = 1;
+            mib.sfn_value = gNodeB_sfn;
+            memcpy(buffer, &mib, sizeof(mib));
+            for(int i = 0; i < N;i++)
+            {
+                if(empty(list_client[i])) continue;
+                node_t *temp = list_client[i];
+                while(temp != NULL){
+                    struct sockaddr_in *cliaddr = (struct sockaddr_in *) temp->data;
+                    sendto(udp_sockfd, buffer, sizeof(mib), MSG_CONFIRM, (const struct sockaddr *)cliaddr, len);
+                    temp = temp->next;
+                }
+            }
+        }
+
         /*
          * vao cac thoi diem PF tien hanh gui cac ban tin tuong ung      
          */
@@ -399,7 +425,6 @@ void
                         sendto(udp_sockfd, (char *)&rrc_paging_message, sizeof(rrc_paging_message), MSG_CONFIRM, (const struct sockaddr *)cliaddr, len);
                         printf("gNodeB_sfn: %d RRC Paging message sent to UE: %d - ",gNodeB_sfn, i);
                         print_client_info(cliaddr);
-                        
                         temp = temp->next;
                     }
                     printf("remaining paging record: %d\n", size(queue_of_Paging_record));
@@ -415,32 +440,7 @@ void
         }
 
 
-        /*
-         * Tien hanh gui ban tin MIB nham muc dung dong bo SFN
-         */
-        if (gNodeB_sfn % 8)
-        {
-            flag = true;
-        }
-        if (gNodeB_sfn % 8 == 0 && flag) // 80ms delay
-        {
-            flag = false;
-            mib.message_id = 1;
-            mib.sfn_value = gNodeB_sfn;
-            memcpy(buffer, &mib, sizeof(mib));
-            for(int i = 0; i < N;i++)
-            {
-                if(empty(list_client[i])) continue;
-                //if(group_cliaddr[i].sin_family == 0) continue;
-                node_t *temp = list_client[i];
-                while(temp != NULL){
-                    struct sockaddr_in *cliaddr = (struct sockaddr_in *) temp->data;
-                    sendto(udp_sockfd, buffer, sizeof(mib), MSG_CONFIRM, (const struct sockaddr *)cliaddr, len);
-                    temp = temp->next;
-                }
-                //sendto(udp_sockfd, buffer, sizeof(mib), MSG_CONFIRM, (const struct sockaddr *)&group_cliaddr[i], len);
-            }
-        }
+
     }
     return NULL;
 }

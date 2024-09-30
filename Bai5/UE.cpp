@@ -48,12 +48,10 @@ struct SIB1
 volatile short UE_sfn = 0;
 int sync_status = 0;
 
-
 void increment_sfn(int signum)
 {
     UE_sfn = (UE_sfn + 1) % 1024;
 }
-
 
 /*
  *  *cal_PFs()
@@ -62,8 +60,7 @@ void increment_sfn(int signum)
  */
 
 int PFs[8];
-void 
-cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
+void cal_PFs(short PF_offset, short DRX_cycle, short N, short UE_ID)
 {
     short T = DRX_cycle;
     short VP = (T / N) * (UE_ID % N);
@@ -93,10 +90,10 @@ void setup_timer()
     setitimer(ITIMER_REAL, &timer, NULL);
 }
 
-int main()
+int main(int argc, char const *argv[])
 {
-    srand(time(NULL));
-    UE_ID_S += rand() % 200;
+    //srand(time(NULL));
+    UE_ID_S += atoi(argv[1]);
     struct UE_message ue_message = {UE_ID_S, "Hello from UE"};
     printf("UE_ID_S = %d\n", UE_ID_S);
     int sockfd;
@@ -111,7 +108,7 @@ int main()
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(GNB_UDP_PORT);
-    //servaddr.sin_addr.s_addr = INADDR_ANY;
+    // servaddr.sin_addr.s_addr = INADDR_ANY;
     inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
     socklen_t len = sizeof(servaddr);
 
@@ -134,12 +131,14 @@ int main()
                 {
                     UE_sfn = mib.sfn_value;
                     sync_status = 1;
+                    setup_timer();
                     printf("UE synced to SFN = %d\n", UE_sfn);
                 }
                 else if (mib.sfn_value % 80 == 0)
                 { // cu moi 800ms thi UE re-sync
                     UE_sfn = mib.sfn_value;
-                    //printf("UE re-synced to SFN = %d\n", UE_sfn);
+                    setup_timer();
+                    // printf("UE re-synced to SFN = %d\n", UE_sfn);
                 }
             }
             else if (buffer[0] == 0)
@@ -150,43 +149,66 @@ int main()
                 if (sib1.N == 0)
                     continue;
                 cal_PFs(sib1.PF_offset, sib1.DRX_cycle, sib1.N, UE_ID_S);
-                for (int i = 0; i < 8;i++)
+                for (int i = 0; i < 8; i++)
                 {
                     printf("PF = %d ", PFs[i]);
                 }
             }
-        }
-        /*UE thuc day va kiem tra ban tin RRC_Paging duoc gui den*/
-        for (int i = 0; i < 8;i++)
-        {
-            if (UE_sfn == PFs[i])
+            else if (buffer[0] == 101)
             {
-                if (n > 0)
-                {
-                    if (buffer[0] == 101)
-                    {
-                        struct RRC_Paging_message paging_message;
-                        memcpy(&paging_message, buffer, sizeof(paging_message));
-                        printf("%d - ",UE_sfn);
-                        printf("Received RRC Paging Message:\n");
-                        // printf("  Message_Type: %d\n", paging_message.Message_Type);
-                        // printf("  Number of Paging Records: %d\n", paging_message.num_Paging_record);
-                        cnt_ngap_paging += paging_message.num_Paging_record;
-                        // for (int i = 0; i < paging_message.num_Paging_record; i++)
-                        // {
-                        //     printf("  Paging Record %d:\n", i + 1);
-                        //     printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
-                        //     printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
+                struct RRC_Paging_message paging_message;
+                memcpy(&paging_message, buffer, sizeof(paging_message));
+                printf("%d - ", UE_sfn);
+                printf("Received RRC Paging Message:\n");
+                // printf("  Message_Type: %d\n", paging_message.Message_Type);
+                // printf("  Number of Paging Records: %d\n", paging_message.num_Paging_record);
+                cnt_ngap_paging += paging_message.num_Paging_record;
+                // for (int i = 0; i < paging_message.num_Paging_record; i++)
+                // {
+                //     printf("  Paging Record %d:\n", i + 1);
+                //     printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
+                //     printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
 
-                        //     if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
-                        //     {
-                        //         printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
-                        //     }
-                        // }
-                        printf("Total Paging Records received: %lld\n", cnt_ngap_paging);
-                    }
-                }
+                //     if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
+                //     {
+                //         printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
+                //     }
+                // }
+                printf("Total Paging Records received: %lld\n", cnt_ngap_paging);
             }
+        
+            // /*UE thuc day va kiem tra ban tin RRC_Paging duoc gui den*/
+            // for (int i = 0; i < 8; i++)
+            // {
+            //     if (UE_sfn == PFs[i])
+            //     {
+            //         if (n > 0)
+            //         {
+            //             if (buffer[0] == 101)
+            //             {
+            //                 struct RRC_Paging_message paging_message;
+            //                 memcpy(&paging_message, buffer, sizeof(paging_message));
+            //                 printf("%d - ", UE_sfn);
+            //                 printf("Received RRC Paging Message:\n");
+            //                 // printf("  Message_Type: %d\n", paging_message.Message_Type);
+            //                 // printf("  Number of Paging Records: %d\n", paging_message.num_Paging_record);
+            //                 cnt_ngap_paging += paging_message.num_Paging_record;
+            //                 // for (int i = 0; i < paging_message.num_Paging_record; i++)
+            //                 // {
+            //                 //     printf("  Paging Record %d:\n", i + 1);
+            //                 //     printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
+            //                 //     printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
+
+            //                 //     if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
+            //                 //     {
+            //                 //         printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
+            //                 //     }
+            //                 // }
+            //                 printf("Total Paging Records received: %lld\n", cnt_ngap_paging);
+            //             }
+            //         }
+            //     }
+            // }
         }
     }
 }

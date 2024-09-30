@@ -139,7 +139,6 @@ int main()
                 else if (mib.sfn_value % 80 == 0)
                 { // cu moi 800ms thi UE re-sync
                     UE_sfn = mib.sfn_value;
-                    //printf("UE re-synced to SFN = %d\n", UE_sfn);
                 }
             }
             else if (buffer[0] == 0)
