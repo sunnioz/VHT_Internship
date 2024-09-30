@@ -12,7 +12,7 @@
 #define GNB_UDP_PORT 5000
 #define MAXLINE 1024
 
-#define UE_ID_S 101
+#define UE_ID_S 102
 
 struct UE_message
 {

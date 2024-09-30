@@ -8,8 +8,10 @@
 #include<sys/time.h>
 #include <time.h>
 
-#define GNB_TCP_PORT 6000
+#define GNB_TCP_PORT 7000
 #define MAXLINE 2048
+
+const char* ipaddr = "127.0.0.1";
 
 struct NgAP_Paging_message
 {
@@ -35,8 +37,8 @@ int main(){
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(GNB_TCP_PORT);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
+    //addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET,ipaddr,&addr.sin_addr);
     if(connect(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1){
         printf("connect error\n");
         exit(1);
@@ -48,16 +50,18 @@ int main(){
     /*
      *send NgAP paging message to gNodeB voi tan suat 5ms
      */
-    while(1){
+    long long cnt = 0;
+    while(cnt < 10000){
+        cnt ++;
         struct NgAP_Paging_message paging_message;
         paging_message.Message_Type = 100;
-        paging_message.NG_5G_S_TMSI = rand() % 200;
+        paging_message.NG_5G_S_TMSI =100 + rand() % 200;
         paging_message.TAI = 8888;
         paging_message.CN_Domain = 101;
         memcpy(buffer, &paging_message, sizeof(paging_message));
         send(sock, buffer, sizeof(buffer), 0);
-        printf("NgAP sent: NG_5G_S_TMSI = %d, TAI = %d, CN_Domain = %d\n", paging_message.NG_5G_S_TMSI, paging_message.TAI, paging_message.CN_Domain);
-        usleep(5000);
+        printf("%lld - NgAP sent: NG_5G_S_TMSI = %d, TAI = %d, CN_Domain = %d\n", cnt, paging_message.NG_5G_S_TMSI, paging_message.TAI, paging_message.CN_Domain);
+        usleep(100);
     }
 
     return 0;

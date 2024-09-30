@@ -18,6 +18,12 @@
 #define PF_OFFSET 0         /*Phan bu PF*/
 #define MAXNROFPAGEREC 32   /*So luong ban tin paging record toi da trong 1 ban tin RRC_Paging*/
 
+
+
+
+volatile long long count = 0;
+const char* ipaddr = "127.0.0.1";
+
 /*su dung flag_mutex de kiem soat Queue cua Paging Record*/
 pthread_mutex_t flag_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -154,7 +160,7 @@ filter_rrc_paging_messages(node_t **queue, int group)
     node_t *temp = *queue;
     node_t *prev = NULL;
 
-    while (temp != NULL) {
+    while (temp != NULL && rrc_paging_message.num_Paging_record < MAXNROFPAGEREC) {
         // Access data inside the node
         struct mapping_paging_record_to_group *current_data = (struct mapping_paging_record_to_group *) temp->data;
 
@@ -162,10 +168,7 @@ filter_rrc_paging_messages(node_t **queue, int group)
             // Add matching record to the RRC_Paging_message
             rrc_paging_message.paging_record[rrc_paging_message.num_Paging_record] = current_data->paging_record;
             rrc_paging_message.num_Paging_record++;
-
-            // Stop when MAXNROFPAGEREC is reached
-            if (rrc_paging_message.num_Paging_record == MAXNROFPAGEREC) break;
-
+            
             // Remove node from the queue
             if (prev == NULL) {
                 *queue = temp->next;  // If it's the first node
@@ -181,8 +184,10 @@ filter_rrc_paging_messages(node_t **queue, int group)
             temp = temp->next;
         }
     }
+    
     return rrc_paging_message;
 }
+
 
 
 
@@ -195,7 +200,7 @@ struct SIB1 sib1 = {PF_OFFSET, DRX_CYCLE, N};       /*Bien luu tru thong tin SIB
 struct NgAP_Paging_message NgAP_paging_message;     /*Bien luu tru thong tin ban tin NgAP_Paging_message*/
 struct RRC_Paging_message rrc_paging_message;       /*Bien luu tru thong tin ban tin RRC_Paging_message*/
 volatile bool flag_gNodeB_sfn = false;
-
+long long cnt_ngap_paging[N] = {0};
 /*
  *  *init_rrc_paging_message()
  *   khoi tao ban tin RRC_Paging_message
@@ -227,7 +232,7 @@ print_client_info(struct sockaddr_in *cliaddr)
 
     char *client_ip = inet_ntoa(cliaddr->sin_addr);
     int client_port = ntohs(cliaddr->sin_port);
-    printf("Client IP: %s\n", client_ip);
+    printf("Client IP: %s - ", client_ip);
     printf("Client Port: %d\n", client_port);
 }
 
@@ -332,9 +337,9 @@ void
     memset(&cliaddr, 0, sizeof(cliaddr));
 
     servaddr.sin_family = AF_INET;
-    //servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(UE_UDP_PORT);
-    inet_pton(AF_INET,"172.16.27.89",&servaddr.sin_addr);
+    //inet_pton(AF_INET,"172.16.27.89",&servaddr.sin_addr);
     if (bind(udp_sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("bind failed");
@@ -374,7 +379,7 @@ void
          * vao cac thoi diem PF tien hanh gui cac ban tin tuong ung      
          */
 
-        pthread_mutex_lock(&flag_mutex);
+        
         for(int i = 0; i < N;i++)
         {
             if(empty(list_client[i])) continue;
@@ -384,15 +389,23 @@ void
                 if(flag_gNodeB_sfn && gNodeB_sfn == j)
                 {
                     flag_gNodeB_sfn = false;
+                    pthread_mutex_lock(&flag_mutex);
                     rrc_paging_message = filter_rrc_paging_messages(&queue_of_Paging_record, i);
+                    pthread_mutex_unlock(&flag_mutex);
                     if(rrc_paging_message.num_Paging_record == 0 ) continue;
                     node_t *temp = list_client[i];
                     while(temp != NULL){
                         struct sockaddr_in *cliaddr = (struct sockaddr_in *) temp->data;
                         sendto(udp_sockfd, (char *)&rrc_paging_message, sizeof(rrc_paging_message), MSG_CONFIRM, (const struct sockaddr *)cliaddr, len);
-                        printf("gNodeB_sfn: %d RRC Paging message sent to UE: %d\n",gNodeB_sfn, i);
+                        printf("gNodeB_sfn: %d RRC Paging message sent to UE: %d - ",gNodeB_sfn, i);
+                        print_client_info(cliaddr);
+                        
                         temp = temp->next;
                     }
+                    printf("remaining paging record: %d\n", size(queue_of_Paging_record));
+                    cnt_ngap_paging[i] += rrc_paging_message.num_Paging_record;
+                    printf("number of paging record sent: %lld\n", cnt_ngap_paging[i]);
+                    printf("total paging record sent: %lld\n", cnt_ngap_paging[0] + cnt_ngap_paging[1] + cnt_ngap_paging[2] + cnt_ngap_paging[3]);
                     //sendto(udp_sockfd, (char *)&rrc_paging_message, sizeof(rrc_paging_message), MSG_CONFIRM, (const struct sockaddr *)&group_cliaddr[i], len);
                     //printf("gNodeB_sfn: %d RRC Paging message sent to UE: %d\n",gNodeB_sfn, i);
                     reset_rrc_paging_message();
@@ -400,7 +413,7 @@ void
                 }
             }
         }
-        pthread_mutex_unlock(&flag_mutex);
+
 
         /*
          * Tien hanh gui ban tin MIB nham muc dung dong bo SFN
@@ -455,7 +468,7 @@ void
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(AMF_TCP_PORT);
-    inet_pton(AF_INET,"172.16.27.89",&server_addr.sin_addr);
+    inet_pton(AF_INET,ipaddr,&server_addr.sin_addr);
 
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -475,7 +488,9 @@ void
             if(buffer[0] == 100)                                    /*nhan ban tin NgAP_Paging_message tu AMF*/
             {
                 memcpy(&NgAP_paging_message, buffer, sizeof(NgAP_paging_message));
-                printf("gNodeB:%d,Received paging message from AMF: UE_ID = %d, TAC = %d, CN_Domain = %d\n", gNodeB_sfn, NgAP_paging_message.NG_5G_S_TMSI, NgAP_paging_message.TAI, NgAP_paging_message.CN_Domain);
+                count++;
+                printf("%lld - gNodeB:%d,Received paging message from AMF: UE_ID = %d, TAC = %d, CN_Domain = %d\n",count, gNodeB_sfn, NgAP_paging_message.NG_5G_S_TMSI, NgAP_paging_message.TAI, NgAP_paging_message.CN_Domain);
+                
                 pthread_mutex_lock(&flag_mutex);
                 add_paging_record_to_queue(NgAP_paging_message);    /*them ban tin Paging Record vao Queue*/
                 printf("number of paging record: %d\n", size(queue_of_Paging_record));

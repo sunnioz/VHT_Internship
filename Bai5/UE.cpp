@@ -7,11 +7,12 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <vector>
+#include <time.h>
 
-#define UE_ID_S 101             /*Dinh danh cua UE gia su da co duoc tu qua trinh Attach*/
 #define GNB_UDP_PORT 5000
 #define MAXLINE 1024
 
+int UE_ID_S = 100;
 
 struct UE_message
 {
@@ -46,7 +47,7 @@ struct SIB1
 
 volatile short UE_sfn = 0;
 int sync_status = 0;
-struct UE_message ue_message = {UE_ID_S, "Hello from UE"};
+
 
 void increment_sfn(int signum)
 {
@@ -94,6 +95,10 @@ void setup_timer()
 
 int main()
 {
+    srand(time(NULL));
+    UE_ID_S += rand() % 200;
+    struct UE_message ue_message = {UE_ID_S, "Hello from UE"};
+    printf("UE_ID_S = %d\n", UE_ID_S);
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
@@ -106,15 +111,15 @@ int main()
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(GNB_UDP_PORT);
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-
+    //servaddr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
     socklen_t len = sizeof(servaddr);
 
     sendto(sockfd, &ue_message, sizeof(ue_message), MSG_CONFIRM, (const struct sockaddr *)&servaddr, sizeof(servaddr));
     printf("Message with UE_ID_S sent from UE\n");
 
     setup_timer();
-
+    long long cnt_ngap_paging = 0;
     while (1)
     {
         int n = recvfrom(sockfd, buffer, MAXLINE, MSG_DONTWAIT, (struct sockaddr *)&servaddr, &len);
@@ -134,7 +139,7 @@ int main()
                 else if (mib.sfn_value % 80 == 0)
                 { // cu moi 800ms thi UE re-sync
                     UE_sfn = mib.sfn_value;
-                    printf("UE re-synced to SFN = %d\n", UE_sfn);
+                    //printf("UE re-synced to SFN = %d\n", UE_sfn);
                 }
             }
             else if (buffer[0] == 0)
@@ -162,22 +167,23 @@ int main()
                     {
                         struct RRC_Paging_message paging_message;
                         memcpy(&paging_message, buffer, sizeof(paging_message));
-
+                        printf("%d - ",UE_sfn);
                         printf("Received RRC Paging Message:\n");
-                        printf("  Message_Type: %d\n", paging_message.Message_Type);
-                        printf("  Number of Paging Records: %d\n", paging_message.num_Paging_record);
+                        // printf("  Message_Type: %d\n", paging_message.Message_Type);
+                        // printf("  Number of Paging Records: %d\n", paging_message.num_Paging_record);
+                        cnt_ngap_paging += paging_message.num_Paging_record;
+                        // for (int i = 0; i < paging_message.num_Paging_record; i++)
+                        // {
+                        //     printf("  Paging Record %d:\n", i + 1);
+                        //     printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
+                        //     printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
 
-                        for (int i = 0; i < paging_message.num_Paging_record; i++)
-                        {
-                            printf("  Paging Record %d:\n", i + 1);
-                            printf("    UE_ID: %d\n", paging_message.paging_record[i].UE_ID);
-                            printf("    Access Type: %d\n", paging_message.paging_record[i].access_type);
-
-                            if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
-                            {
-                                printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
-                            }
-                        }
+                        //     if (paging_message.paging_record[i].UE_ID == UE_ID_S)  // Kiem tra ban tin RRC_Paging co dung cho UE_ID_S hay khong
+                        //     {
+                        //         printf("*******    Paging Record for UE_ID = %d\n", UE_ID_S);
+                        //     }
+                        // }
+                        printf("Total Paging Records received: %lld\n", cnt_ngap_paging);
                     }
                 }
             }
